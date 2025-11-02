@@ -1,5 +1,6 @@
 package cliente;
 
+import java.awt.EventQueue;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -7,6 +8,7 @@ import java.net.Socket;
 import java.net.UnknownHostException;
 
 import util.Util;
+import view.ClienteView;
 
 public class Cliente {
 
@@ -33,7 +35,7 @@ public class Cliente {
 			salida.flush();
 			
 		String resp = (String) entrada.readObject();
-		System.out.println("Servidor: " + resp);
+		System.out.println(resp);
 		
 		final ObjectInputStream entradaFinal = entrada;
 		final ObjectOutputStream salidaFinal = salida;
@@ -50,7 +52,7 @@ public class Cliente {
 		            Object r = entradaFinal.readObject();
 		            if (r instanceof String) {
 		                String mensajeServidor = (String) r;
-		                System.out.println("Servidor: " + mensajeServidor);
+		                System.out.println( mensajeServidor);
 		                if (mensajeServidor.startsWith("SYS|AGUR")) {
 		                    break; // El servidor cerró la conexión
 		                }
@@ -98,11 +100,17 @@ public class Cliente {
 			}
 			System.out.println("Fin cliente");
 		}
-    }
+	}
 	
 	public static void main(String[] args) {
-		// TODO Auto-generated method stub
-		new Cliente().iniciar();
+		EventQueue.invokeLater(() -> {
+			try {
+				ClienteView frame = new ClienteView();
+				frame.setVisible(true);
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		});
 	}
 
 }

@@ -19,10 +19,10 @@ public class Servidor {
 	private final Object lock = new Object(); 
 	private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 	private final LocalDateTime tiempoInicio = LocalDateTime.now();
-	private String ultimoMensaje = "Ningún mensaje aún";
+	private String ultimoMensaje = "Ningun mensaje aun";
 
 	public static final int PUERTO = 5000;
-	public static final int MAX_CLIENTES = 10; 
+	public static final int MAX_CLIENTES = 4; 
 	
 	private void log(String accion) {
 		String timestamp = LocalDateTime.now().format(formatter);
@@ -50,7 +50,6 @@ public class Servidor {
 		});
 		monitor.setDaemon(true);
 		monitor.start();
-		System.out.println("Monitor de estado iniciado (cada 10 segundos)");
 	}
 	
 	private void mostrarEstadoServidor() {
@@ -65,7 +64,7 @@ public class Servidor {
 			System.out.println("=".repeat(60));
 			System.out.println(" Usuarios conectados: " + conectados.size() + "/" + MAX_CLIENTES);
 			System.out.println(" Tiempo activo: " + horas + "h " + minutos + "m " + segundos + "s");
-			System.out.println(" Último mensaje: " + ultimoMensaje);
+			System.out.println(" Ultimo mensaje: " + ultimoMensaje);
 			if (conectados.size() > 0) {
 				System.out.print(" Usuarios: ");
 				String usuarios = String.join(", ", conectados.keySet());
@@ -84,7 +83,7 @@ public class Servidor {
 	public void agregarCliente(String nick, ManejadorCliente cliente) {
 		synchronized(lock) {
 			conectados.put(nick, cliente);
-			log("Usuario " + nick + " entró al chat. Total conectados: " + conectados.size());
+			log("Usuario " + nick + " ha entrado al chat. Total conectados: " + conectados.size());
 			
 			// avisar a todos que hay un nuevo user 
 			String notificacion = "SYS | " + nick + " se ha unido al chat";
@@ -100,7 +99,7 @@ public class Servidor {
 		if (nick != null) {
 			synchronized(lock) {
 				conectados.remove(nick);
-				log("Usuario " + nick + " salió del chat. Total conectados: " + conectados.size());
+				log("Usuario " + nick + " ha salido del chat. Total conectados: " + conectados.size());
 				
 				// avisar a todos que quien se ha desconectado
 				String notificacion = "SYS | " + nick + " ha salido del chat";
@@ -157,7 +156,7 @@ public class Servidor {
 		try {
 			servidor = new ServerSocket(PUERTO);
 			System.out.println("Servidor iniciado en puerto " + PUERTO);
-			System.out.println("Máximo de clientes permitidos: " + MAX_CLIENTES);
+			System.out.println("Maximo de clientes permitidos: " + MAX_CLIENTES);
 			System.out.println("Esperando conexiones....");
 			
 			// Iniciar monitor del servidor
@@ -170,10 +169,10 @@ public class Servidor {
 				synchronized(lock) {
 					if (conectados.size() >= MAX_CLIENTES) {
 						try (ObjectOutputStream rechazo = new ObjectOutputStream(cliente.getOutputStream())) {
-							rechazo.writeObject("ERROR | Servidor completo. Máximo " + MAX_CLIENTES + " clientes");
+							rechazo.writeObject("ERROR | Servidor completo. Maximo " + MAX_CLIENTES + " clientes");
 							rechazo.flush();
 							cliente.close();
-							log("Conexión rechazada - Servidor completo (" + conectados.size() + "/" + MAX_CLIENTES + ")");
+							log("Conexion rechazada - Servidor completo (" + conectados.size() + "/" + MAX_CLIENTES + ")");
 							continue;
 						} catch (IOException e) {
 							System.err.println("Error rechazando cliente: " + e.getMessage());
