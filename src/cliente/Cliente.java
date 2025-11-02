@@ -32,36 +32,52 @@ public class Cliente {
 			salida.writeObject(nick);
 			salida.flush();
 			
-			String resp = (String) entrada.readObject();
-			System.out.println("Servidor: " + resp);
-			
-			// ... ya leíste "Introduce tu nick", enviaste el nick y leíste "Bienvenido"
-			System.out.println("Puedes escribir: MSG|texto  o  QUIT");
+		String resp = (String) entrada.readObject();
+		System.out.println("Servidor: " + resp);
+		
+		final ObjectInputStream entradaFinal = entrada;
+		final ObjectOutputStream salidaFinal = salida;
+		
+		System.out.println("Comandos disponibles:");
+		System.out.println("  msg <texto>             - Enviar mensaje público");
+		System.out.println("  priv <usuario> <texto>  - Enviar mensaje privado");
+		System.out.println("  list                    - Ver usuarios conectados");
+		System.out.println("  QUIT                    - Salir del chat");
+		System.out.println();		// Crear hilo para escuchar mensajes del servidor
+		Thread hiloEscucha = new Thread(() -> {
+		    try {
+		        while (true) {
+		            Object r = entradaFinal.readObject();
+		            if (r instanceof String) {
+		                String mensajeServidor = (String) r;
+		                System.out.println("Servidor: " + mensajeServidor);
+		                if (mensajeServidor.startsWith("SYS|AGUR")) {
+		                    break; // El servidor cerró la conexión
+		                }
+		            }
+		        }
+		    } catch (IOException | ClassNotFoundException e) {
+		        System.out.println("Conexión con servidor perdida");
+		    }
+		});
+		hiloEscucha.setDaemon(true);
+		hiloEscucha.start();
 
-			// 🔽 NUEVO: bucle de envío/recepción
-			boolean seguir = true;
-			while (seguir) {
-				System.out.println("Introduce un mensaje: ('msg')");
-			    String linea = Util.introducirCadena();  // lee teclado
+		// bucle de envío
+		boolean seguir = true;
+		while (seguir) {
+		    System.out.println("Introduce un mensaje: ('msg')");
+		    String linea = Util.introducirCadena();  // lee teclado
 
-			    // enviar
-			    salida.writeObject(linea);
-			    salida.flush();
+		    // enviar
+		    salidaFinal.writeObject(linea);
+		    salidaFinal.flush();
 
-			    // leer respuesta del servidor
-			    Object r = entrada.readObject();
-			    if (r instanceof String) {
-			        resp = (String) r;
-			        System.out.println("Servidor: " + resp);
-			        if (resp.startsWith("SYS|Adiós")) {
-			            seguir = false; // el servidor cierra esta sesión
-			        }
-			    } else {
-			        System.out.println("Servidor envió objeto inesperado");
-			    }
-			}
-
-			
+		    // verificar si el usuario quiere salir
+		    if (linea.trim().equalsIgnoreCase("QUIT")) {
+		        seguir = false;
+		    }
+		}			
 		} catch (UnknownHostException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
