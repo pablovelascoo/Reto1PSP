@@ -1,0 +1,8 @@
+.project
+bin/cliente/Cliente.class
+bin/module-info.class
+bin/servidor/ManejadorCliente.class
+bin/servidor/Servidor.class
+bin/util/Util.class
+bin/view/ClienteView$1.class
+bin/view/ClienteView.class
