@@ -5,9 +5,6 @@ import java.awt.EventQueue;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.net.Socket;
 
 import javax.swing.DefaultListCellRenderer;
 import javax.swing.DefaultListModel;
@@ -26,6 +23,8 @@ import java.awt.Font;
 import java.awt.Color;
 import javax.swing.ScrollPaneConstants;
 
+import cliente.Cliente;
+
 public class ClienteView extends JFrame implements ActionListener {
 
 	private static final long serialVersionUID = 1L;
@@ -41,16 +40,13 @@ public class ClienteView extends JFrame implements ActionListener {
 	private JButton btnConectar;
 	private JButton btnEnviar;
 	
-	private Socket cliente;
-	private ObjectInputStream entrada;
-	private ObjectOutputStream salida;
-	private Thread hiloEscucha;
-	private boolean conectado = false;
+	private Cliente cliente;
 
 	/**
 	 * Create the frame.
 	 */
-	public ClienteView() {
+	public ClienteView(Cliente cliente) {
+		this.cliente = cliente;
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		setBounds(100, 100, 800, 550);
 		contentPane = new JPanel();
@@ -188,10 +184,10 @@ public class ClienteView extends JFrame implements ActionListener {
 		Object source = e.getSource();
 		
 		if (source == btnConectar) {
-			if (!conectado) {
+			if (!cliente.estaConectado()) {
 				conectar();
 			} else {
-				desconectar();
+				cliente.desconectar();
 			}
 		} else if (source == btnEnviar || source == textField) {
 			enviarMensaje();
@@ -210,27 +206,9 @@ public class ClienteView extends JFrame implements ActionListener {
 		
 		try {
 			int puerto = Integer.parseInt(puertoStr);
+			cliente.conectar(ip, puerto, nick);
 			
-			// Crear conexión
-			cliente = new Socket(ip, puerto);
-			salida = new ObjectOutputStream(cliente.getOutputStream());
-			salida.flush();
-			entrada = new ObjectInputStream(cliente.getInputStream());
-			
-			// Leer mensaje de bienvenida
-			String mensaje = (String) entrada.readObject();
-			agregarMensaje(mensaje);
-			
-			// Enviar nick
-			salida.writeObject(nick);
-			salida.flush();
-			
-			// Recibir respuesta
-			String resp = (String) entrada.readObject();
-			agregarMensaje(resp);
-			
-			// Cambiar estado a conectado
-			conectado = true;
+			// Actualizar UI
 			lblConexion.setText(" ● Conectado");
 			lblConexion.setForeground(Color.GREEN);
 			btnConectar.setText("Desconectar");
@@ -240,12 +218,9 @@ public class ClienteView extends JFrame implements ActionListener {
 			textFieldUser.setEnabled(false);
 			
 			// Mostrar información de ayuda
-			agregarMensaje("Conectado correctamente");
-			agregarMensaje("Escribe 'list' para ver usuarios conectados");
-			agregarMensaje("Usa el campo 'Para:' para enviar mensajes privados");
-			
-			// Iniciar hilo de escucha
-			iniciarHiloEscucha();
+			mostrarMensaje("Conectado correctamente");
+			mostrarMensaje("Escribe 'list' para ver usuarios conectados");
+			mostrarMensaje("Usa el campo 'Para:' para enviar mensajes privados");
 			
 		} catch (NumberFormatException e) {
 			JOptionPane.showMessageDialog(this, "Puerto inválido", "Error", JOptionPane.ERROR_MESSAGE);
@@ -256,77 +231,8 @@ public class ClienteView extends JFrame implements ActionListener {
 		}
 	}
 	
-	private void desconectar() {
-		try {
-			if (salida != null) {
-				salida.writeObject("QUIT");
-				salida.flush();
-			}
-		} catch (IOException e) {
-			// Ignorar errores al desconectar
-		}
-		
-		cerrarConexion();
-	}
-	
-	private void cerrarConexion() {
-		// Evitar cerrar dos veces
-		if (!conectado && cliente == null) {
-			return;
-		}
-		
-		try {
-			if (entrada != null) entrada.close();
-			if (salida != null) salida.close();
-			if (cliente != null) cliente.close();
-		} catch (IOException e) {
-			// Ignorar errores al cerrar
-		}
-		
-		conectado = false;
-		cliente = null;
-		entrada = null;
-		salida = null;
-		
-		lblConexion.setText(" ● Desconectado");
-		lblConexion.setForeground(Color.RED);
-		btnConectar.setText("Conectar");
-		btnEnviar.setEnabled(false);
-		textFieldIp.setEnabled(true);
-		textFieldPuerto.setEnabled(true);
-		textFieldUser.setEnabled(true);
-		
-		agregarMensaje("Desconectado del servidor");
-		agregarMensaje("");
-	}
-	
-	private void iniciarHiloEscucha() {
-		hiloEscucha = new Thread(() -> {
-			try {
-				while (conectado) {
-					Object r = entrada.readObject();
-					if (r instanceof String) {
-						String mensajeServidor = (String) r;
-						agregarMensaje(mensajeServidor);
-						if (mensajeServidor.startsWith("SYS|AGUR")) {
-							break;
-						}
-					}
-				}
-			} catch (IOException | ClassNotFoundException e) {
-				if (conectado) {
-					agregarMensaje("Conexión con servidor perdida");
-				}
-			} finally {
-				cerrarConexion();
-			}
-		});
-		hiloEscucha.setDaemon(true);
-		hiloEscucha.start();
-	}
-	
 	private void enviarMensaje() {
-		if (!conectado) {
+		if (!cliente.estaConectado()) {
 			return;
 		}
 		
@@ -338,31 +244,14 @@ public class ClienteView extends JFrame implements ActionListener {
 		}
 		
 		try {
-			String mensajeCompleto;
-			
-			// Verificar si es el comando list
-			if (mensaje.equalsIgnoreCase("list") || mensaje.equalsIgnoreCase("ls")) {
-				mensajeCompleto = "list";
-			} else if (!destinatario.isEmpty()) {
-				// Si hay destinatario, es mensaje privado
-				mensajeCompleto = "priv " + destinatario + " " + mensaje;
-			} else {
-				// Mensaje público
-				mensajeCompleto = "msg " + mensaje;
-			}
-			
-			salida.writeObject(mensajeCompleto);
-			salida.flush();
-			
-			// Limpiar campo de mensaje
+			cliente.enviarMensaje(destinatario, mensaje);
 			textField.setText("");
-			
 		} catch (IOException e) {
-			agregarMensaje("Error al enviar mensaje: " + e.getMessage());
+			mostrarMensaje("Error al enviar mensaje: " + e.getMessage());
 		}
 	}
 	
-	private void agregarMensaje(String mensaje) {
+	public void mostrarMensaje(String mensaje) {
 		EventQueue.invokeLater(() -> {
 			modeloLista.addElement(mensaje);
 			// Auto-scroll al final
@@ -370,6 +259,21 @@ public class ClienteView extends JFrame implements ActionListener {
 			if (lastIndex >= 0) {
 				list.ensureIndexIsVisible(lastIndex);
 			}
+		});
+	}
+	
+	public void actualizarEstadoDesconectado() {
+		EventQueue.invokeLater(() -> {
+			lblConexion.setText(" ● Desconectado");
+			lblConexion.setForeground(Color.RED);
+			btnConectar.setText("Conectar");
+			btnEnviar.setEnabled(false);
+			textFieldIp.setEnabled(true);
+			textFieldPuerto.setEnabled(true);
+			textFieldUser.setEnabled(true);
+			
+			mostrarMensaje("Desconectado del servidor");
+			mostrarMensaje("");
 		});
 	}
 }
